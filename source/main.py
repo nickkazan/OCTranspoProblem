@@ -5,29 +5,29 @@
 from utilities import parse_trip_names, parse_trip_times, parse_bus_data
 from datetime import datetime
 
+# Set up global variables and parse txt files to create dictionaries
 times_reaching_destinations = []
 visited = []
 direction_names = parse_trip_names()
 trip_times = parse_trip_times()
-
-# Parse bus stops from bus_data.txt
 bus_data_dictionary = parse_bus_data()
+
 
 def main():
     global times_reaching_destinations
     global visited
 
+    # Run the program twice with different values to test the difference
     recursive_scan_new("3030", 98, 0, 26400, ["3035", "3227", "3038", "3039"])
     print("\n")
     without_delay = max(times_reaching_destinations)
-
     times_reaching_destinations = []
     visited = []
-
     recursive_scan_new("3030", 98, 0, 26520, ["3035", "3227", "3038", "3039"])
     print("\n")
     with_delay = max(times_reaching_destinations)
     print("Ending time WITHOUT delay: {} ----- Ending time WITH delay: {}".format(without_delay, with_delay))
+
 
 def recursive_scan_new(stop_number, bus_number, direction, current_time, passenger_destinations):
     global visited
@@ -48,11 +48,13 @@ def recursive_scan_new(stop_number, bus_number, direction, current_time, passeng
             recursive_scan_new(stop, new_option[1], new_option[0], (int(new_option[2]) + new_current_time), passenger_destinations)
     return
 
+
 def determine_best_bus(stop_number, bus_number, direction, options, current_time):
     best = options[0]
     best_time = 0
     flag = True
 
+    # Loop through all potential options to determine the best one
     for option in options:
         bus_choice = option[1]
         if int(option[0]) == int(direction) and int(bus_choice) == int(bus_number):
@@ -60,12 +62,13 @@ def determine_best_bus(stop_number, bus_number, direction, options, current_time
         elif bus_choice == bus_number and int(option[0]) != direction and len(options) > 1: 
             continue
         else:
+            # This format is how we parsed the txt files
             bus_with_direction = str(bus_choice) + "-" + str(direction)
             if trip_times[stop_number] and trip_times[stop_number][bus_with_direction]:
                 for time_index in range(len(trip_times[stop_number][bus_with_direction])):
                     time_for_next_bus = trip_times[stop_number][bus_with_direction][time_index]
                     if trip_times[stop_number][bus_with_direction][time_index] < current_time:
-                        # the bus is from the past
+                        # the bus is from the past so we can't take it
                         continue
                     elif time_for_next_bus >= current_time:
                         # we will take this bus as it's the next available one
