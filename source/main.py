@@ -1,93 +1,87 @@
-from utilities import parseBusStops
-from utilities import parseBusRoutes
+# Description: File containing useful tools to facilitate the OCTranspoProblem
+# Author: Nicholas Kazan
+# Year: 2020
 
-STOP_TIMES = {
-    "01" : {
-        "02" : [720, 722, 725, 727, 730, 735, 740, 745],
-    },
-    "02" : {
-        "03" : [720, 723, 725, 726, 731, 736, 740, 745, 748, 753],
-        "05" : [725, 727, 728, 731, 738, 740, 745, 749, 753, 760],
-    },
-    "03" : {
-        "04" : [733, 736, 740, 743, 750, 755, 759, 761, 764],
-    },
-    "04" : {},
-    "05" : {
-        "06" : [740, 743, 747, 750, 754, 759, 763, 765, 770, 775, 800],
-        "07" : [740, 743, 749, 750, 753, 757, 760, 764, 768, 769, 775, 780, 800, 803, 805, 808],
-    },
-    "06" : {},
-    "07" : {},
-}
+from utilities import parse_trip_names, parse_trip_times, parse_bus_data
+from datetime import datetime
 
-GRAPH = {
-    "01" : [("02", 12)],
-    "02" : [("03", 6), ("05", 5)],
-    "03" : [("04", 7)],
-    "04" : [],
-    "05" : [("06", 18), ("07", 6)],
-    "06" : [],
-    "07" : [],
-}
+times_reaching_destinations = []
+visited = []
+direction_names = parse_trip_names()
+trip_times = parse_trip_times()
 
-total_trip_time = 0
+# Parse bus stops from bus_data.txt
+bus_data_dictionary = parse_bus_data()
 
 def main():
-    global total_trip_time
-    passenger_destinations = ["02", "05", "07"]
+    global times_reaching_destinations
+    global visited
 
-    # With Time Delay - 725
-    recursive_scan("01", 725, passenger_destinations)
-    print("Completed all trips by: {}\n".format(total_trip_time))
+    recursive_scan_new("3030", 98, 0, 26400, ["3035", "3227", "3038", "3039"])
+    print("\n")
+    without_delay = max(times_reaching_destinations)
 
-    # Clean up anything before running again
-    print("-----------------------------------------\n")
-    total_trip_time = 0
-    passenger_destinations = ["02", "05", "07"]
+    times_reaching_destinations = []
+    visited = []
 
-    # Without Time Delay - 720
-    recursive_scan("01", 720, passenger_destinations)
-    print("Completed all trips by: {}".format(total_trip_time))
+    recursive_scan_new("3030", 98, 0, 26520, ["3035", "3227", "3038", "3039"])
+    print("\n")
+    with_delay = max(times_reaching_destinations)
+    print("Ending time WITHOUT delay: {} ----- Ending time WITH delay: {}".format(without_delay, with_delay))
 
-    # Parse the stop text file with every bus stop
-    print(parseBusStops())
-
-    # Parse the routes text file with every bus route
-    print(parseBusRoutes())
-    
-
-
-def recursive_scan(stop_number, current_time, passenger_destinations):
-    global total_trip_time
-    possible_routes = GRAPH[stop_number]
-    destinations = STOP_TIMES[stop_number]
-    stop_flag = False
+def recursive_scan_new(stop_number, bus_number, direction, current_time, passenger_destinations):
+    global visited
+    global times_reaching_destinations
 
     if stop_number in passenger_destinations:
-        stop_flag = True
         passenger_destinations.remove(stop_number)
-    
-    if len(passenger_destinations) > 0:
-        for route in possible_routes:
-            print("Checking route from: stop {} to stop {}".format(stop_number, route[0]))
-            stop_times = destinations[route[0]]   
-            earliest_stop_time = calculate_possible_stop_time(stop_times, current_time)
-            print("    Arrive at: {}".format((earliest_stop_time + route[1])))
-            recursive_scan(route[0], earliest_stop_time + route[1], passenger_destinations)
-        
-    if current_time > total_trip_time and stop_flag:
-        total_trip_time = current_time
+        times_reaching_destinations.append(current_time)
+    if len(passenger_destinations) == 0:
+        return
+    if stop_number in bus_data_dictionary and stop_number not in visited:
+        visited.append(stop_number)
+        next_stops = bus_data_dictionary[stop_number]
 
+        for stop, options in next_stops.items():
+            (new_option, new_current_time) = determine_best_bus(stop_number, bus_number, direction, options, current_time)
+            print("Next Stop: {} ----- Next Path: {} ----- New Time: {}".format(stop, new_option, new_current_time))
+            recursive_scan_new(stop, new_option[1], new_option[0], (int(new_option[2]) + new_current_time), passenger_destinations)
+    return
 
-# Basic for now, but could become complex depending on how the OCTranspo API works
-def calculate_possible_stop_time(stop_times, current_time):
-    for time in stop_times:
-        if current_time <= time:
-            print("    Depart at: {}".format(time))
-            return time
-    # We should never reach here, this means we can't catch any busses because the time doesn't match
+def determine_best_bus(stop_number, bus_number, direction, options, current_time):
+    best = options[0]
+    best_time = 0
+    flag = True
 
+    for option in options:
+        bus_choice = option[1]
+        if int(option[0]) == int(direction) and int(bus_choice) == int(bus_number):
+            return (option, current_time)
+        elif bus_choice == bus_number and int(option[0]) != direction and len(options) > 1: 
+            continue
+        else:
+            bus_with_direction = str(bus_choice) + "-" + str(direction)
+            if trip_times[stop_number] and trip_times[stop_number][bus_with_direction]:
+                for time_index in range(len(trip_times[stop_number][bus_with_direction])):
+                    time_for_next_bus = trip_times[stop_number][bus_with_direction][time_index]
+                    if trip_times[stop_number][bus_with_direction][time_index] < current_time:
+                        # the bus is from the past
+                        continue
+                    elif time_for_next_bus >= current_time:
+                        # we will take this bus as it's the next available one
+                        # flag makes sure that we set this the first time with no comparison
+                        if flag:
+                            flag = False
+                            best = option
+                            best_time = time_for_next_bus
+                        else:
+                            if time_for_next_bus < best_time:
+                                best_time = time_for_next_bus
+                                best = option
+            else:
+                print("-----ERROR: somehow we're missing a stop and bus in trip_times")    
+    # return best option
+    return (best, best_time)
 
 if __name__ == "__main__":
     main()
