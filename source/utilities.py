@@ -7,7 +7,7 @@ import os
 
 
 def parse_trip_times():
-    accepted_busses = ["98", "97", "99"]
+    accepted_busses = ["98", "97", "99", "44"]
     accepted_day = "SEPT20-SEPDA20-Weekday-11"
     stop_conversion_dict = {}
     flag = True
