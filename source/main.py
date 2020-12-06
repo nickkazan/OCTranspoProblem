@@ -9,6 +9,7 @@ import random
 # Set up global variables and parse txt files to create dictionaries
 times_reaching_destinations = []
 visited = []
+individual_times = {}
 direction_names = parse_trip_names()
 trip_times = parse_trip_times()
 bus_data_dictionary = parse_bus_data()
@@ -20,13 +21,17 @@ for key in bus_data_dictionary.keys():
 def main():
     global times_reaching_destinations
     global visited
+    global individual_times
 
     max_time_wasted = 0
     average_wasted = []
+    total_wasted_each_destination = []
 
-    for index in range(100):
+    for _ in range(50):
+        sum_of_time_delayed_at_each_destination = 0
         times_reaching_destinations = []
         visited = []
+        individual_times = {}
 
 
         destinations = random.sample(all_stops, random.randint(1, 10))
@@ -36,38 +41,48 @@ def main():
         starting_bus = bus_data_dictionary[starting_point][stop][0]
 
         starting_time = random.randint(20000, 60000)
-        delayed_starting_time = random.randint(starting_time, starting_time+360)
+        # delayed_starting_time = random.randint(starting_time, starting_time+600)
+        delayed_starting_time = starting_time+300
 
         # Run the program twice with different values to test the difference
         recursive_scan_new(starting_point, starting_bus[1], starting_bus[0], starting_time, destinations.copy())
+        
         without_delay = max(times_reaching_destinations)
-
+        sum_of_time_delayed_at_each_destination = sum(individual_times.values())
         times_reaching_destinations = []
         visited = []
+        individual_times = {}
 
         recursive_scan_new(starting_point, starting_bus[1], starting_bus[0], delayed_starting_time, destinations.copy())
-        with_delay = max(times_reaching_destinations)
 
+        with_delay = max(times_reaching_destinations)
+        sum_of_time_delayed_at_each_destination = abs(sum_of_time_delayed_at_each_destination - sum(individual_times.values()))
+        total_wasted_each_destination.append(sum_of_time_delayed_at_each_destination)
         wasted_this_run = abs(with_delay - without_delay)
         max_time_wasted += wasted_this_run
         average_wasted.append(wasted_this_run)
-        print("Ending time WITHOUT delay: {} ----- Ending time WITH delay: {}".format(without_delay, with_delay))
+        # print("Ending time WITHOUT delay: {} ----- Ending time WITH delay: {}".format(without_delay, with_delay))
 
-    print(average_wasted)
     average_wasted_per_run = int(sum(average_wasted) / len(average_wasted))
+    average_wasted_no_zero = list(filter(lambda a: a != 0, average_wasted))
+    average_wasted_per_run_no_zero = int(sum(average_wasted_no_zero) / len(average_wasted_no_zero))
 
     print("Total time wasted with delays: {}".format(str(datetime.timedelta(seconds=max_time_wasted))))
     print("Average time wasted each run: {}".format(str(datetime.timedelta(seconds=average_wasted_per_run))))
-    print()
+    print("Average time wasted without 0s: {}".format(str(datetime.timedelta(seconds=average_wasted_per_run_no_zero))))
+    print("List of time difference each run: {}".format(total_wasted_each_destination))
 
 
 def recursive_scan_new(stop_number, bus_number, direction, current_time, passenger_destinations):
     global visited
     global times_reaching_destinations
+    global individual_times
 
     if stop_number in passenger_destinations:
         passenger_destinations.remove(stop_number)
         times_reaching_destinations.append(current_time)
+        individual_times[stop_number] = current_time
+
     if len(passenger_destinations) == 0:
         return
     if stop_number in bus_data_dictionary and stop_number not in visited:
